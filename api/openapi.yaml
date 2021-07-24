@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  description: Bitbucket Server Code Coverage plugin API
+  title: Bitbucket Server Code Coverage plugin API
+  version: 1.0.0
+servers:
+- url: '{baseUrl}/rest/code-coverage/1.0'
+  variables:
+    baseUrl:
+      default: http://localhost
+      description: Bitbucket Server URL
+security:
+- basicAuth: []
+- bearerAuth: []
+paths:
+  /commits/{commitId}:
+    delete:
+      description: Deletes code coverage data for specified commit
+      operationId: Delete
+      parameters:
+      - description: The commit ID. This must be a full 40 character commit hash
+        explode: false
+        in: path
+        name: commitId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsList'
+          description: |
+            The currently authenticated user has insufficient permissions (REPO_READ needed) to delete
+            code coverage data.
+      tags:
+      - coverage
+    get:
+      description: Returns code coverage data for specified commit
+      operationId: Get
+      parameters:
+      - description: The commit ID. This must be a full 40 character commit hash
+        explode: false
+        in: path
+        name: commitId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: This is the path of the file relative to the git repository
+        explode: true
+        in: query
+        name: path
+        required: true
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitCoverage'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsList'
+          description: |
+            The currently authenticated user has insufficient permissions (REPO_READ needed) to delete
+            code coverage data.
+      tags:
+      - coverage
+    post:
+      description: |
+        Submit code coverage data for specified commit. You can post multiple times for same commit hash
+        (e.g. from different test types) - coverage data will be merged.
+      operationId: Post
+      parameters:
+      - description: The commit ID. This must be a full 40 character commit hash
+        explode: false
+        in: path
+        name: commitId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitCoverage'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitCoverage'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsList'
+          description: Bad request
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorsList'
+          description: |
+            The currently authenticated user has insufficient permissions (REPO_READ needed) to post
+            code coverage data.
+      tags:
+      - coverage
+components:
+  schemas:
+    Error:
+      properties:
+        context:
+          description: |
+            The context attribute indicates which parameter or request entity attribute failed validation.
+            Note that the context may be null.
+          nullable: true
+          type: string
+        message:
+          description: Error description
+          type: string
+        exceptionName:
+          nullable: true
+          type: string
+      required:
+      - context
+      - exceptionName
+      - message
+      type: object
+    ErrorsList:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/Error'
+          type: array
+      required:
+      - errors
+      type: object
+    FileCoverage:
+      description: File code coverage data
+      example:
+        coverage: coverage
+        path: path
+      properties:
+        path:
+          description: This is the path of the file relative to the git repository
+          type: string
+        coverage:
+          description: |
+            Data consists of 3 semi-column separated parts:
+            * `C` - list of fully covered lines
+            * `P` - list of partly covered lines (line considered partly covered when it has multiple branches,
+              some of them covered and some not)
+            * `U` - list of uncovered lines
+          title: Code coverage data
+          type: string
+      required:
+      - coverage
+      - path
+      type: object
+    CommitCoverage:
+      description: Commit code coverage data
+      example:
+        files:
+        - coverage: coverage
+          path: path
+        - coverage: coverage
+          path: path
+      properties:
+        files:
+          description: Code coverage data for files included in commit
+          items:
+            $ref: '#/components/schemas/FileCoverage'
+          minItems: 1
+          type: array
+      required:
+      - files
+      type: object
+  securitySchemes:
+    basicAuth:
+      scheme: basic
+      type: http
+    bearerAuth:
+      scheme: bearer
+      type: http
